@@ -1,0 +1,38 @@
+# Локальное окружение для разработки Elementary.
+# Запуск:     docker compose up -d       (из папки local/)
+# Остановка:  docker compose down        (данные в томах сохраняются)
+# Полный сброс данных: docker compose down -v
+
+name: elementary
+
+services:
+  redis:
+    image: redis:8-alpine
+    # appendonly yes      — включить AOF: каждая команда записи дописывается в журнал на диске
+    # appendfsync everysec — сбрасывать журнал на диск раз в секунду (потеря не более 1 с при сбое)
+    command: ["redis-server", "--appendonly", "yes", "--appendfsync", "everysec"]
+    ports:
+      - "127.0.0.1:6379:6379"   # доступен только с этого компьютера, не из локальной сети
+    volumes:
+      - redis-data:/data        # файлы RDB и AOF живут в томе и переживают пересоздание контейнера
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+    restart: unless-stopped
+
+  redis-insight:
+    image: redis/redisinsight:latest
+    ports:
+      - "127.0.0.1:5540:5540"   # веб-интерфейс: http://localhost:5540
+    volumes:
+      - redisinsight-data:/data # сохранённые подключения и настройки Redis Insight
+    depends_on:
+      redis:
+        condition: service_healthy
+    restart: unless-stopped
+
+volumes:
+  redis-data:
+  redisinsight-data:
